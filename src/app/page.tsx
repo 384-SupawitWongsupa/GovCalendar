@@ -11,7 +11,8 @@ import ExportModal from '@/components/ExportModal';
 export default function Home() {
   const [events, setEvents] = useState<BookingEvent[]>(INITIAL_EVENTS);
   const [isLoading, setIsLoading] = useState(true);
-  const [currentMonth, setCurrentMonth] = useState<Date>(new Date('2026-06-01T00:00:00'));
+  const [currentDate, setCurrentDate] = useState<Date>(new Date('2026-06-01T00:00:00'));
+  const [viewMode, setViewMode] = useState<'month' | 'list'>('month');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<BookingEvent | null>(null);
@@ -47,19 +48,31 @@ export default function Home() {
     fetchEvents();
   }, []);
 
-  // Generate calendar days
-  const monthStart = startOfMonth(currentMonth);
-  const monthEnd = endOfMonth(monthStart);
-  const startDate = startOfWeek(monthStart);
-  const endDate = endOfWeek(monthEnd);
+  // Generate calendar days based on viewMode
+  let startDate = new Date();
+  let endDate = new Date();
+  let calendarDays: Date[] = [];
 
-  const calendarDays = eachDayOfInterval({
-    start: startDate,
-    end: endDate
-  });
+  if (viewMode === 'month') {
+    const monthStart = startOfMonth(currentDate);
+    const monthEnd = endOfMonth(monthStart);
+    startDate = startOfWeek(monthStart);
+    endDate = endOfWeek(monthEnd);
+    calendarDays = eachDayOfInterval({ start: startDate, end: endDate });
+  } else if (viewMode === 'list') {
+    const monthStart = startOfMonth(currentDate);
+    const monthEnd = endOfMonth(monthStart);
+    startDate = monthStart;
+    endDate = monthEnd;
+    calendarDays = eachDayOfInterval({ start: startDate, end: endDate });
+  }
 
-  const nextMonth = () => setCurrentMonth(addDays(monthEnd, 1));
-  const prevMonth = () => setCurrentMonth(addDays(monthStart, -1));
+  const navigateNext = () => {
+    if (viewMode === 'month' || viewMode === 'list') setCurrentDate(addDays(endOfMonth(currentDate), 1));
+  };
+  const navigatePrev = () => {
+    if (viewMode === 'month' || viewMode === 'list') setCurrentDate(addDays(startOfMonth(currentDate), -1));
+  };
 
   const todayDate = new Date();
   todayDate.setHours(0, 0, 0, 0);
@@ -140,21 +153,42 @@ export default function Home() {
       {/* Calendar Header Area */}
       <div className="flex justify-between items-center" style={{ flexWrap: 'wrap', gap: '1rem' }}>
         <div className="flex items-center gap-3">
-          <button onClick={prevMonth} className="btn btn-outline" style={{ width: '40px', height: '40px', padding: 0, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronLeft size={20} /></button>
+          <button onClick={navigatePrev} className="btn btn-outline" style={{ width: '40px', height: '40px', padding: 0, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronLeft size={20} /></button>
           <div style={{ textAlign: 'center', minWidth: '180px' }}>
             <h1 className="text-3xl font-bold" style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--foreground)', letterSpacing: '-0.5px' }}>
-              {format(currentMonth, 'MMMM', { locale: th })}
+              {format(currentDate, 'MMMM', { locale: th })}
             </h1>
             <p style={{ fontSize: '0.75rem', opacity: 0.6, letterSpacing: '1px', textTransform: 'uppercase', marginTop: '-2px' }}>
-              {format(currentMonth, 'MMMM')} {format(currentMonth, 'yyyy')}
+              {`${format(currentDate, 'MMMM', { locale: th })} ${format(currentDate, 'yyyy')}`}
             </p>
           </div>
-          <button onClick={nextMonth} className="btn btn-outline" style={{ width: '40px', height: '40px', padding: 0, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronRight size={20} /></button>
+          <button onClick={navigateNext} className="btn btn-outline" style={{ width: '40px', height: '40px', padding: 0, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronRight size={20} /></button>
         </div>
         
         <div className="flex items-center gap-3">
-          <div className="text-2xl font-bold" style={{ color: 'var(--primary)', marginRight: '0.5rem', background: 'rgba(var(--primary-rgb), 0.08)', padding: '0.35rem 0.85rem', borderRadius: '8px' }}>
-            พ.ศ. {parseInt(format(currentMonth, 'yyyy')) + 543}
+          <div className="flex" style={{ background: 'var(--surface-hover)', borderRadius: 'var(--radius-sm)', padding: '0.25rem' }}>
+            {(['month', 'list'] as const).map(mode => (
+              <button 
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                style={{ 
+                  padding: '0.35rem 0.75rem', 
+                  borderRadius: 'var(--radius-sm)', 
+                  fontSize: '0.85rem', 
+                  fontWeight: viewMode === mode ? 700 : 500,
+                  background: viewMode === mode ? 'var(--primary)' : 'transparent',
+                  color: viewMode === mode ? '#fff' : 'var(--foreground)',
+                  border: 'none',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                {mode === 'month' ? 'เดือน' : 'คิวงาน'}
+              </button>
+            ))}
+          </div>
+          <div className="text-2xl font-bold hidden md:block" style={{ color: 'var(--primary)', marginRight: '0.5rem', background: 'rgba(var(--primary-rgb), 0.08)', padding: '0.35rem 0.85rem', borderRadius: '8px' }}>
+            พ.ศ. {parseInt(format(currentDate, 'yyyy')) + 543}
           </div>
           <button onClick={() => setIsExportModalOpen(true)} className="btn btn-outline" style={{ borderRadius: 'var(--radius-sm)' }}>
             <Download size={16} />
@@ -170,79 +204,116 @@ export default function Home() {
       <div className="flex gap-6 flex-1" style={{ flexWrap: 'wrap-reverse', mdFlexWrap: 'nowrap' }}>
         {/* Left: Main Grid */}
         <div className="flex-1 flex flex-col" style={{ minWidth: '320px' }}>
-          {/* Weekday Headers */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', background: 'var(--surface-hover)', borderRadius: '12px 12px 0 0', overflow: 'hidden', borderLeft: '1px solid var(--border)', borderTop: '1px solid var(--border)', borderRight: '1px solid var(--border)' }}>
-            {['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'].map((day, i) => (
-              <div key={day} className="calendar-header-cell" style={{ 
-                color: i === 0 || i === 6 ? 'var(--cat-red-text)' : 'var(--foreground)',
-                borderTop: 'none',
-                borderLeft: i === 0 ? 'none' : '1px solid var(--border)',
-                borderRight: 'none',
-                fontSize: '0.85rem',
-                fontWeight: 700,
-                padding: '1rem 0.5rem'
-              }}>
-                {day}
-              </div>
-            ))}
-          </div>
-          
-          {/* Calendar Grid */}
-          <div className="calendar-grid flex-1" style={{ position: 'relative' }}>
-            {isLoading && (
-              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(var(--background), 0.7)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
-                <div className="card animate-scale" style={{ padding: '1.5rem 2rem', background: 'var(--surface)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-lg)' }}>
-                  กำลังโหลดข้อมูลจาก Google Sheets...
-                </div>
-              </div>
-            )}
-            {calendarDays.map((date, idx) => {
-              const isCurrentMonth = isSameMonth(date, currentMonth);
-              const dayEvents = getEventsForDay(date);
-              const isToday = isSameDay(date, new Date());
-              
-              return (
-                <div key={idx} className={`calendar-cell ${!isCurrentMonth ? 'other-month' : ''}`}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
-                    <span style={{ 
-                      display: 'inline-flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'center', 
-                      width: isToday ? '26px' : 'auto', 
-                      height: isToday ? '26px' : 'auto', 
-                      borderRadius: isToday ? '50%' : 'none', 
-                      background: isToday ? 'var(--primary)' : 'transparent', 
-                      color: isToday ? '#ffffff' : 'inherit',
-                      opacity: isToday ? 1 : (isCurrentMonth ? 1 : 0.4),
-                      fontWeight: isToday ? 700 : 500,
+          {viewMode !== 'list' ? (
+            <>
+              {/* Weekday Headers for Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(7, minmax(0, 1fr))`, background: 'var(--surface-hover)', borderRadius: '12px 12px 0 0', overflow: 'hidden', borderLeft: '1px solid var(--border)', borderTop: '1px solid var(--border)', borderRight: '1px solid var(--border)' }}>
+                  {['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'].map((day, i) => (
+                    <div key={day} className="calendar-header-cell" style={{ 
+                      color: i === 0 || i === 6 ? 'var(--cat-red-text)' : 'var(--foreground)',
+                      borderTop: 'none',
+                      borderLeft: i === 0 ? 'none' : '1px solid var(--border)',
+                      borderRight: 'none',
                       fontSize: '0.85rem',
-                      textAlign: 'center'
+                      fontWeight: 700,
+                      padding: '1rem 0.5rem'
                     }}>
-                      {format(date, 'd')}
-                    </span>
-                    {isToday && <span style={{ fontSize: '0.6rem', color: 'var(--primary)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>วันนี้</span>}
+                      {day}
+                    </div>
+                  ))}
+              </div>
+              
+              {/* Calendar Grid */}
+              <div className="calendar-grid flex-1" style={{ position: 'relative', gridTemplateColumns: `repeat(7, minmax(0, 1fr))` }}>
+                {isLoading && (
+                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(var(--background), 0.7)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
+                    <div className="card animate-scale" style={{ padding: '1.5rem 2rem', background: 'var(--surface)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-lg)' }}>
+                      กำลังโหลดข้อมูลจาก Google Sheets...
+                    </div>
                   </div>
+                )}
+                {calendarDays.map((date, idx) => {
+                  const isCurrentMonth = isSameMonth(date, currentDate);
+                  const dayEvents = getEventsForDay(date);
+                  const isToday = isSameDay(date, new Date());
                   
-                  <div className="flex flex-col gap-1 overflow-y-auto flex-1" style={{ maxHeight: '90px' }}>
-                    {dayEvents.map(event => {
-                      const colors = getPillColor(event);
-                      return (
-                        <div 
-                          key={event.id} 
-                          className="event-pill"
-                          style={{ background: colors.bg, color: colors.text }}
-                          onClick={() => setSelectedEvent(event)}
-                        >
-                          <span style={{ opacity: 0.8, marginRight: '3px', fontWeight: 700 }}>{safeFormatDate(event.startDate, 'HH:mm')}</span>
-                          {event.title}
-                        </div>
-                      );
-                    })}
-                  </div>
+                  return (
+                    <div key={idx} className={`calendar-cell ${!isCurrentMonth && viewMode === 'month' ? 'other-month' : ''}`}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                        <span style={{ 
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center', 
+                          width: isToday ? '26px' : 'auto', height: isToday ? '26px' : 'auto', 
+                          borderRadius: isToday ? '50%' : 'none', background: isToday ? 'var(--primary)' : 'transparent', 
+                          color: isToday ? '#ffffff' : 'inherit', opacity: isToday ? 1 : (isCurrentMonth || viewMode !== 'month' ? 1 : 0.4),
+                          fontWeight: isToday ? 700 : 500, fontSize: '0.85rem', textAlign: 'center'
+                        }}>
+                          {format(date, 'd')}
+                        </span>
+                        {isToday && <span style={{ fontSize: '0.6rem', color: 'var(--primary)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>วันนี้</span>}
+                      </div>
+                      
+                      <div className="flex flex-col gap-1 overflow-y-auto flex-1" style={{ maxHeight: viewMode === 'month' ? '90px' : 'none' }}>
+                        {dayEvents.map(event => {
+                          const colors = getPillColor(event);
+                          return (
+                            <div key={event.id} className="event-pill" style={{ background: colors.bg, color: colors.text, padding: viewMode !== 'month' ? '0.5rem' : undefined, whiteSpace: viewMode !== 'month' ? 'normal' : 'nowrap' }} onClick={() => setSelectedEvent(event)}>
+                              <span style={{ opacity: 0.8, marginRight: '3px', fontWeight: 700 }}>{safeFormatDate(event.startDate, 'HH:mm')}</span>
+                              {event.title}
+                              {viewMode !== 'month' && <div style={{ fontSize: '0.7rem', marginTop: '4px', opacity: 0.8 }}><MapPin size={10} style={{display:'inline', marginRight:'2px'}}/>{event.location}</div>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          ) : (
+            /* List View */
+            <div className="flex-1 overflow-y-auto pr-2" style={{ position: 'relative' }}>
+              {isLoading && (
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(var(--background), 0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
+                  กำลังโหลดข้อมูล...
                 </div>
-              );
-            })}
-          </div>
+              )}
+              {calendarDays.filter(date => getEventsForDay(date).length > 0).length === 0 ? (
+                <div className="flex items-center justify-center h-full opacity-50">ไม่มีคิวงานในเดือนนี้</div>
+              ) : (
+                calendarDays.map((date, idx) => {
+                  const dayEvents = getEventsForDay(date);
+                  if (dayEvents.length === 0) return null;
+                  
+                  return (
+                    <div key={idx} className="mb-6">
+                      <h3 style={{ fontSize: '1rem', fontWeight: 700, borderBottom: '2px solid var(--border)', paddingBottom: '0.5rem', marginBottom: '1rem', color: 'var(--primary)' }}>
+                        {format(date, 'EEEEที่ d MMMM yyyy', { locale: th })}
+                      </h3>
+                      <div className="flex flex-col gap-3">
+                        {dayEvents.map(event => {
+                          const colors = getPillColor(event);
+                          return (
+                            <div key={event.id} onClick={() => setSelectedEvent(event)} className="card flex gap-4 p-4 cursor-pointer hover:border-primary transition-colors" style={{ borderLeft: `4px solid ${colors.text}` }}>
+                              <div style={{ minWidth: '60px', fontWeight: 700, color: 'var(--foreground)' }}>
+                                {safeFormatDate(event.startDate, 'HH:mm')}
+                              </div>
+                              <div className="flex-1">
+                                <h4 style={{ fontWeight: 700, fontSize: '1rem', marginBottom: '0.25rem' }}>{event.title}</h4>
+                                <div className="flex gap-4 opacity-70" style={{ fontSize: '0.85rem' }}>
+                                  <span className="flex items-center gap-1"><MapPin size={14}/> {event.location}</span>
+                                  <span className="flex items-center gap-1"><Users size={14}/> {event.department}</span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
         </div>
 
         {/* Right: Notes & Selected Event Details */}
