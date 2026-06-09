@@ -1,66 +1,399 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+'use client';
+
+import { useState, useEffect } from 'react';
+import { format, parseISO, isSameDay, addDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth } from 'date-fns';
+import { th } from 'date-fns/locale';
+import { INITIAL_EVENTS, ROOM_COLORS, BookingEvent } from '@/data/mockData';
+import { Calendar as CalendarIcon, MapPin, Users, Video, Car, Plus, Info, ChevronLeft, ChevronRight, Edit2, Trash2, Download, X } from 'lucide-react';
+import BookingModal from '@/components/BookingModal';
+import ExportModal from '@/components/ExportModal';
 
 export default function Home() {
+  const [events, setEvents] = useState<BookingEvent[]>(INITIAL_EVENTS);
+  const [isLoading, setIsLoading] = useState(true);
+  const [currentMonth, setCurrentMonth] = useState<Date>(new Date('2026-06-01T00:00:00'));
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<BookingEvent | null>(null);
+  const [eventToEdit, setEventToEdit] = useState<BookingEvent | null>(null);
+
+  const safeFormatDate = (dateStr: string | undefined | null, formatStr: string) => {
+    if (!dateStr) return '-';
+    try {
+      const parsed = parseISO(dateStr);
+      if (isNaN(parsed.getTime())) return '-';
+      return format(parsed, formatStr, { locale: th });
+    } catch {
+      return '-';
+    }
+  };
+
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        const res = await fetch('/api/booking');
+        const result = await res.json();
+        if (result.success && result.data && result.data.length > 0) {
+          setEvents(result.data);
+        } else if (!result.success) {
+          console.warn('Using fallback data because fetch failed:', result);
+        }
+      } catch (error) {
+        console.error('Failed to fetch events', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchEvents();
+  }, []);
+
+  // Generate calendar days
+  const monthStart = startOfMonth(currentMonth);
+  const monthEnd = endOfMonth(monthStart);
+  const startDate = startOfWeek(monthStart);
+  const endDate = endOfWeek(monthEnd);
+
+  const calendarDays = eachDayOfInterval({
+    start: startDate,
+    end: endDate
+  });
+
+  const nextMonth = () => setCurrentMonth(addDays(monthEnd, 1));
+  const prevMonth = () => setCurrentMonth(addDays(monthStart, -1));
+
+  const todayDate = new Date();
+  todayDate.setHours(0, 0, 0, 0);
+
+  const eventsByDate = events.reduce((acc, event) => {
+    // Check if event is in the past (ended before today)
+    const end = new Date(event.endDate || event.startDate);
+    end.setHours(23, 59, 59, 999);
+    
+    // ถ้าเวลาสิ้นสุดของกิจกรรม ผ่านเมื่อวานไปแล้ว ให้ข้าม (ไม่แสดงบนปฏิทิน)
+    if (end < todayDate) return acc;
+
+    const start = new Date(event.startDate);
+    const dateKey = format(start, 'yyyy-MM-dd');
+    if (!acc[dateKey]) acc[dateKey] = [];
+    acc[dateKey].push(event);
+    return acc;
+  }, {} as Record<string, BookingEvent[]>);
+
+  const getEventsForDay = (date: Date) => {
+    const dateKey = format(date, 'yyyy-MM-dd');
+    return (eventsByDate[dateKey] || []).sort((a, b) => {
+      const tA = parseISO(a.startDate).getTime();
+      const tB = parseISO(b.startDate).getTime();
+      return (isNaN(tA) ? 0 : tA) - (isNaN(tB) ? 0 : tB);
+    });
+  };
+
+  const getPillColor = (event: BookingEvent) => {
+    let type = event.roomType;
+    if (!['large', 'medium', 'small', 'vehicle', 'online'].includes(type)) {
+      const str = JSON.stringify(event);
+      if (str.includes('สภา')) type = 'large';
+      else if (str.includes('ผู้สูงอายุ')) type = 'small';
+      else if (str.includes('รถ')) type = 'vehicle';
+      else if (str.includes('Zoom')) type = 'online';
+      else type = 'medium';
+    }
+    switch (type) {
+      case 'large': return { bg: 'var(--cat-red-bg)', text: 'var(--cat-red-text)' };
+      case 'medium': return { bg: 'var(--cat-blue-bg)', text: 'var(--cat-blue-text)' };
+      case 'small': return { bg: 'var(--cat-purple-bg)', text: 'var(--cat-purple-text)' };
+      case 'vehicle': return { bg: 'var(--cat-green-bg)', text: 'var(--cat-green-text)' };
+      case 'online': return { bg: 'var(--cat-yellow-bg)', text: 'var(--cat-yellow-text)' };
+      default: return { bg: 'var(--cat-blue-bg)', text: 'var(--cat-blue-text)' };
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('คุณแน่ใจหรือไม่ที่จะลบการจองนี้?')) return;
+    
+    // Optimistic update
+    setEvents(events.filter(e => e.id !== id));
+    setSelectedEvent(null);
+    
+    try {
+      const res = await fetch('/api/booking', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+      const data = await res.json();
+      if (data.simulated) {
+        alert('ลบการจองเรียบร้อย (ยังไม่ได้เชื่อมต่อ Google Sheets Webhook จริง)');
+      } else if (!data.success) {
+        alert('เกิดข้อผิดพลาดในการลบใน Google Sheets');
+      } else {
+        alert('ลบข้อมูลใน Google Sheets เรียบร้อยแล้ว!');
+      }
+    } catch (error) {
+      console.error('Delete error:', error);
+      alert('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
+    }
+  };
+
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>To get started, edit the page.tsx file.</h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="flex flex-col h-full gap-6 animate-fade">
+      {/* Calendar Header Area */}
+      <div className="flex justify-between items-center" style={{ flexWrap: 'wrap', gap: '1rem' }}>
+        <div className="flex items-center gap-3">
+          <button onClick={prevMonth} className="btn btn-outline" style={{ width: '40px', height: '40px', padding: 0, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronLeft size={20} /></button>
+          <div style={{ textAlign: 'center', minWidth: '180px' }}>
+            <h1 className="text-3xl font-bold" style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--foreground)', letterSpacing: '-0.5px' }}>
+              {format(currentMonth, 'MMMM', { locale: th })}
+            </h1>
+            <p style={{ fontSize: '0.75rem', opacity: 0.6, letterSpacing: '1px', textTransform: 'uppercase', marginTop: '-2px' }}>
+              {format(currentMonth, 'MMMM')} {format(currentMonth, 'yyyy')}
+            </p>
+          </div>
+          <button onClick={nextMonth} className="btn btn-outline" style={{ width: '40px', height: '40px', padding: 0, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronRight size={20} /></button>
         </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        
+        <div className="flex items-center gap-3">
+          <div className="text-2xl font-bold" style={{ color: 'var(--primary)', marginRight: '0.5rem', background: 'rgba(var(--primary-rgb), 0.08)', padding: '0.35rem 0.85rem', borderRadius: '8px' }}>
+            พ.ศ. {parseInt(format(currentMonth, 'yyyy')) + 543}
+          </div>
+          <button onClick={() => setIsExportModalOpen(true)} className="btn btn-outline" style={{ borderRadius: 'var(--radius-sm)' }}>
+            <Download size={16} />
+            <span>รายงาน</span>
+          </button>
+          <button onClick={() => { setEventToEdit(null); setIsModalOpen(true); }} className="btn btn-primary" style={{ borderRadius: 'var(--radius-sm)' }}>
+            <Plus size={16} />
+            <span>จองห้องประชุม</span>
+          </button>
         </div>
-      </main>
+      </div>
+
+      <div className="flex gap-6 flex-1" style={{ flexWrap: 'wrap-reverse', mdFlexWrap: 'nowrap' }}>
+        {/* Left: Main Grid */}
+        <div className="flex-1 flex flex-col" style={{ minWidth: '320px' }}>
+          {/* Weekday Headers */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', background: 'var(--surface-hover)', borderRadius: '12px 12px 0 0', overflow: 'hidden', borderLeft: '1px solid var(--border)', borderTop: '1px solid var(--border)', borderRight: '1px solid var(--border)' }}>
+            {['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'].map((day, i) => (
+              <div key={day} className="calendar-header-cell" style={{ 
+                color: i === 0 || i === 6 ? 'var(--cat-red-text)' : 'var(--foreground)',
+                borderTop: 'none',
+                borderLeft: i === 0 ? 'none' : '1px solid var(--border)',
+                borderRight: 'none',
+                fontSize: '0.85rem',
+                fontWeight: 700,
+                padding: '1rem 0.5rem'
+              }}>
+                {day}
+              </div>
+            ))}
+          </div>
+          
+          {/* Calendar Grid */}
+          <div className="calendar-grid flex-1" style={{ position: 'relative' }}>
+            {isLoading && (
+              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(var(--background), 0.7)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
+                <div className="card animate-scale" style={{ padding: '1.5rem 2rem', background: 'var(--surface)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-lg)' }}>
+                  กำลังโหลดข้อมูลจาก Google Sheets...
+                </div>
+              </div>
+            )}
+            {calendarDays.map((date, idx) => {
+              const isCurrentMonth = isSameMonth(date, currentMonth);
+              const dayEvents = getEventsForDay(date);
+              const isToday = isSameDay(date, new Date());
+              
+              return (
+                <div key={idx} className={`calendar-cell ${!isCurrentMonth ? 'other-month' : ''}`}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                    <span style={{ 
+                      display: 'inline-flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center', 
+                      width: isToday ? '26px' : 'auto', 
+                      height: isToday ? '26px' : 'auto', 
+                      borderRadius: isToday ? '50%' : 'none', 
+                      background: isToday ? 'var(--primary)' : 'transparent', 
+                      color: isToday ? '#ffffff' : 'inherit',
+                      opacity: isToday ? 1 : (isCurrentMonth ? 1 : 0.4),
+                      fontWeight: isToday ? 700 : 500,
+                      fontSize: '0.85rem',
+                      textAlign: 'center'
+                    }}>
+                      {format(date, 'd')}
+                    </span>
+                    {isToday && <span style={{ fontSize: '0.6rem', color: 'var(--primary)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>วันนี้</span>}
+                  </div>
+                  
+                  <div className="flex flex-col gap-1 overflow-y-auto flex-1" style={{ maxHeight: '90px' }}>
+                    {dayEvents.map(event => {
+                      const colors = getPillColor(event);
+                      return (
+                        <div 
+                          key={event.id} 
+                          className="event-pill"
+                          style={{ background: colors.bg, color: colors.text }}
+                          onClick={() => setSelectedEvent(event)}
+                        >
+                          <span style={{ opacity: 0.8, marginRight: '3px', fontWeight: 700 }}>{safeFormatDate(event.startDate, 'HH:mm')}</span>
+                          {event.title}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Right: Notes & Selected Event Details */}
+        <div style={{ width: '320px', display: 'flex', flexDirection: 'column', gap: '1rem', minWidth: '300px' }}>
+          
+          {selectedEvent ? (
+            <div className="card flex-1 flex flex-col animate-fade" style={{ padding: '1.5rem', borderLeft: `6px solid ${getPillColor(selectedEvent).text}`, position: 'relative' }}>
+              <div className="flex justify-between items-start mb-4 pb-2" style={{ borderBottom: '1px solid var(--border)' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 700, opacity: 0.8 }}>รายละเอียดการจอง</h3>
+                <div className="flex gap-1">
+                  <button onClick={() => { setEventToEdit(selectedEvent); setIsModalOpen(true); }} className="btn btn-outline" style={{ padding: '0.35rem', borderRadius: '6px' }} title="แก้ไขข้อมูล">
+                    <Edit2 size={14} />
+                  </button>
+                  <button onClick={() => handleDelete(selectedEvent.id)} className="btn btn-outline" style={{ padding: '0.35rem', borderRadius: '6px', color: 'var(--cat-red-text)', borderColor: 'var(--cat-red-border)', background: 'var(--cat-red-bg)' }} title="ลบการจอง">
+                    <Trash2 size={14} />
+                  </button>
+                  <button onClick={() => setSelectedEvent(null)} className="btn btn-outline" style={{ padding: '0.35rem', borderRadius: '6px' }} title="ปิด">
+                    <X size={14} />
+                  </button>
+                </div>
+              </div>
+              <h5 style={{ fontWeight: 800, color: 'var(--foreground)', fontSize: '1.15rem', marginBottom: '1.25rem', lineHeight: '1.4', wordBreak: 'break-word' }}>
+                {selectedEvent.title}
+              </h5>
+              <div style={{ fontSize: '0.85rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div className="flex items-start gap-3">
+                  <div style={{ color: 'var(--primary)', background: 'rgba(var(--primary-rgb), 0.08)', padding: '0.35rem', borderRadius: '6px', display: 'flex' }}>
+                    <MapPin size={16} /> 
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 700, opacity: 0.6, fontSize: '0.75rem', textTransform: 'uppercase' }}>สถานที่</div>
+                    <div style={{ fontWeight: 600, color: 'var(--foreground)' }}>{selectedEvent.location}</div>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div style={{ color: 'var(--primary)', background: 'rgba(var(--primary-rgb), 0.08)', padding: '0.35rem', borderRadius: '6px', display: 'flex' }}>
+                    <CalendarIcon size={16} /> 
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 700, opacity: 0.6, fontSize: '0.75rem', textTransform: 'uppercase' }}>เวลาจอง</div>
+                    <div style={{ fontWeight: 600, color: 'var(--foreground)' }}>
+                      {safeFormatDate(selectedEvent.startDate, 'd MMMM yyyy')} <br/>
+                      <span style={{ color: 'var(--primary)' }}>{safeFormatDate(selectedEvent.startDate, 'HH:mm')} - {safeFormatDate(selectedEvent.endDate, 'HH:mm')} น.</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div style={{ color: 'var(--primary)', background: 'rgba(var(--primary-rgb), 0.08)', padding: '0.35rem', borderRadius: '6px', display: 'flex' }}>
+                    <Info size={16} /> 
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 700, opacity: 0.6, fontSize: '0.75rem', textTransform: 'uppercase' }}>ประธานการประชุม</div>
+                    <div style={{ fontWeight: 600, color: 'var(--foreground)' }}>{selectedEvent.president}</div>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div style={{ color: 'var(--primary)', background: 'rgba(var(--primary-rgb), 0.08)', padding: '0.35rem', borderRadius: '6px', display: 'flex' }}>
+                    <Users size={16} /> 
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 700, opacity: 0.6, fontSize: '0.75rem', textTransform: 'uppercase' }}>หน่วยงานผู้จัด / ผู้ร่วม</div>
+                    <div style={{ fontWeight: 600, color: 'var(--foreground)' }}>{selectedEvent.department} ({selectedEvent.attendees} คน)</div>
+                  </div>
+                </div>
+                {selectedEvent.equipment !== '-' && (
+                  <div style={{ background: 'var(--surface-hover)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', borderLeft: '3px solid var(--primary)', marginTop: '0.5rem' }}>
+                    <strong style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.75rem', textTransform: 'uppercase', opacity: 0.6 }}>อุปกรณ์ที่ต้องการ</strong>
+                    <div style={{ opacity: 0.9, fontWeight: 500 }}>{selectedEvent.equipment}</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="card flex-1 flex flex-col items-center justify-center animate-fade" style={{ padding: '2rem 1.5rem', minHeight: '400px', textAlign: 'center', borderStyle: 'dashed', borderWidth: '2px', borderColor: 'var(--border)', background: 'transparent' }}>
+              <div style={{ 
+                background: 'rgba(var(--primary-rgb), 0.08)', 
+                color: 'var(--primary)', 
+                padding: '1.25rem', 
+                borderRadius: '50%', 
+                marginBottom: '1.25rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 4px 12px rgba(var(--primary-rgb), 0.08)'
+              }}>
+                <CalendarIcon size={32} />
+              </div>
+              <h4 style={{ fontWeight: 700, fontSize: '1.1rem', marginBottom: '0.5rem', color: 'var(--foreground)' }}>รายละเอียดกิจกรรม</h4>
+              <p style={{ opacity: 0.6, fontSize: '0.85rem', maxWidth: '220px', lineHeight: '1.6' }}>
+                คลิกเลือกการจองในปฏิทิน เพื่อตรวจสอบรายละเอียดผู้จัด ประธาน และอุปกรณ์เพิ่มเติม
+              </p>
+            </div>
+          )}
+
+        </div>
+      </div>
+
+      <BookingModal 
+        isOpen={isModalOpen}
+        onClose={() => { setIsModalOpen(false); setEventToEdit(null); }}
+        initialData={eventToEdit}
+        events={events}
+        onSave={async (newEvent: any) => {
+          // 1. เพิ่มข้อมูลลง UI ทันที (Optimistic UI)
+          let newEventWithId;
+          const isUpdating = !!newEvent.id;
+
+          if (isUpdating) {
+            newEventWithId = { ...eventToEdit, ...newEvent };
+            setEvents(events.map(e => e.id === newEvent.id ? newEventWithId : e));
+            setSelectedEvent(newEventWithId);
+          } else {
+            const now = new Date();
+            // ใช้ วันที่ + เวลา เป็น ID ไปเลย เพื่อให้แสดงใน Google Sheet สวยงาม
+            const id = `${now.toLocaleDateString('th-TH')} ${now.toLocaleTimeString('th-TH')}`;
+            newEventWithId = {
+              ...newEvent,
+              id: id,
+              status: 'pending' as const,
+              createdBy: 'current_user'
+            };
+            setEvents([...events, newEventWithId]);
+          }
+
+          // 2. ส่งข้อมูลไปที่ API
+          try {
+            const res = await fetch('/api/booking', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(newEventWithId)
+            });
+            const data = await res.json();
+            if (data.simulated) {
+              alert(isUpdating ? 'บันทึกการแก้ไขเรียบร้อย (ยังไม่ได้เชื่อมต่อ Google Sheets Webhook จริง)' : 'บันทึกข้อมูลเรียบร้อย (ยังไม่ได้เชื่อมต่อ Google Sheets Webhook จริง)');
+            } else if (!data.success) {
+              alert('เกิดข้อผิดพลาดในการบันทึกลง Google Sheets');
+            } else {
+              alert(isUpdating ? 'แก้ไขข้อมูลใน Google Sheets เรียบร้อยแล้ว!' : 'บันทึกข้อมูลลง Google Sheets เรียบร้อยแล้ว!');
+            }
+          } catch (error) {
+            console.error('Save error:', error);
+            alert('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
+          }
+        }}
+      />
+
+      <ExportModal 
+        isOpen={isExportModalOpen} 
+        onClose={() => setIsExportModalOpen(false)} 
+        events={events} 
+      />
     </div>
   );
 }
