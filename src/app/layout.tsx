@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import ThemeToggle from '@/components/ThemeToggle';
 
 export const metadata: Metadata = {
   title: 'GovCalendar - ระบบจองห้องประชุม',
@@ -22,6 +23,7 @@ export default function RootLayout({
             </div>
             
             <div className="flex items-center gap-3">
+              <ThemeToggle />
               <span className="badge badge-green" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.35rem 0.75rem', borderRadius: '50px', fontSize: '0.8rem' }}>
                 <span className="pulse-dot" style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#166534', display: 'inline-block' }}></span>
                 พร้อมใช้งาน

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { format, parseISO, isSameDay, addDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { INITIAL_EVENTS, ROOM_COLORS, BookingEvent } from '@/data/mockData';
-import { Calendar as CalendarIcon, MapPin, Users, Video, Car, Plus, Info, ChevronLeft, ChevronRight, Edit2, Trash2, Download, X } from 'lucide-react';
+import { Calendar as CalendarIcon, MapPin, Users, Video, Car, Plus, Info, ChevronLeft, ChevronRight, Edit2, Trash2, Download, X, BarChart3, Award } from 'lucide-react';
 import BookingModal from '@/components/BookingModal';
 import ExportModal from '@/components/ExportModal';
 
@@ -12,7 +12,7 @@ export default function Home() {
   const [events, setEvents] = useState<BookingEvent[]>(INITIAL_EVENTS);
   const [isLoading, setIsLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState<Date>(new Date('2026-06-01T00:00:00'));
-  const [viewMode, setViewMode] = useState<'month' | 'list'>('month');
+  const [viewMode, setViewMode] = useState<'month' | 'list' | 'dashboard'>('month');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<BookingEvent | null>(null);
@@ -59,7 +59,7 @@ export default function Home() {
     startDate = startOfWeek(monthStart);
     endDate = endOfWeek(monthEnd);
     calendarDays = eachDayOfInterval({ start: startDate, end: endDate });
-  } else if (viewMode === 'list') {
+  } else if (viewMode === 'list' || viewMode === 'dashboard') {
     const monthStart = startOfMonth(currentDate);
     const monthEnd = endOfMonth(monthStart);
     startDate = monthStart;
@@ -68,10 +68,10 @@ export default function Home() {
   }
 
   const navigateNext = () => {
-    if (viewMode === 'month' || viewMode === 'list') setCurrentDate(addDays(endOfMonth(currentDate), 1));
+    setCurrentDate(addDays(endOfMonth(currentDate), 1));
   };
   const navigatePrev = () => {
-    if (viewMode === 'month' || viewMode === 'list') setCurrentDate(addDays(startOfMonth(currentDate), -1));
+    setCurrentDate(addDays(startOfMonth(currentDate), -1));
   };
 
   const todayDate = new Date();
@@ -81,7 +81,7 @@ export default function Home() {
     // Check if event is in the past (ended before today)
     const end = new Date(event.endDate || event.startDate);
     end.setHours(23, 59, 59, 999);
-    
+
     // ถ้าเวลาสิ้นสุดของกิจกรรม ผ่านเมื่อวานไปแล้ว ให้ข้าม (ไม่แสดงบนปฏิทิน)
     if (end < todayDate) return acc;
 
@@ -123,11 +123,11 @@ export default function Home() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('คุณแน่ใจหรือไม่ที่จะลบการจองนี้?')) return;
-    
+
     // Optimistic update
     setEvents(events.filter(e => e.id !== id));
     setSelectedEvent(null);
-    
+
     try {
       const res = await fetch('/api/booking', {
         method: 'DELETE',
@@ -164,17 +164,17 @@ export default function Home() {
           </div>
           <button onClick={navigateNext} className="btn btn-outline" style={{ width: '40px', height: '40px', padding: 0, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronRight size={20} /></button>
         </div>
-        
+
         <div className="flex items-center gap-3">
           <div className="flex" style={{ background: 'var(--surface-hover)', borderRadius: 'var(--radius-sm)', padding: '0.25rem' }}>
-            {(['month', 'list'] as const).map(mode => (
-              <button 
+            {(['month', 'list', 'dashboard'] as const).map(mode => (
+              <button
                 key={mode}
                 onClick={() => setViewMode(mode)}
-                style={{ 
-                  padding: '0.35rem 0.75rem', 
-                  borderRadius: 'var(--radius-sm)', 
-                  fontSize: '0.85rem', 
+                style={{
+                  padding: '0.35rem 0.75rem',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.85rem',
                   fontWeight: viewMode === mode ? 700 : 500,
                   background: viewMode === mode ? 'var(--primary)' : 'transparent',
                   color: viewMode === mode ? '#fff' : 'var(--foreground)',
@@ -183,7 +183,7 @@ export default function Home() {
                   transition: 'all 0.2s'
                 }}
               >
-                {mode === 'month' ? 'เดือน' : 'คิวงาน'}
+                {mode === 'month' ? 'เดือน' : mode === 'list' ? 'คิวงาน' : 'สถิติ'}
               </button>
             ))}
           </div>
@@ -204,25 +204,25 @@ export default function Home() {
       <div className="flex gap-6 flex-1" style={{ flexWrap: 'wrap-reverse', mdFlexWrap: 'nowrap' }}>
         {/* Left: Main Grid */}
         <div className="flex-1 flex flex-col" style={{ minWidth: '320px' }}>
-          {viewMode !== 'list' ? (
+          {viewMode === 'month' ? (
             <>
               {/* Weekday Headers for Grid */}
               <div style={{ display: 'grid', gridTemplateColumns: `repeat(7, minmax(0, 1fr))`, background: 'var(--surface-hover)', borderRadius: '12px 12px 0 0', overflow: 'hidden', borderLeft: '1px solid var(--border)', borderTop: '1px solid var(--border)', borderRight: '1px solid var(--border)' }}>
-                  {['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'].map((day, i) => (
-                    <div key={day} className="calendar-header-cell" style={{ 
-                      color: i === 0 || i === 6 ? 'var(--cat-red-text)' : 'var(--foreground)',
-                      borderTop: 'none',
-                      borderLeft: i === 0 ? 'none' : '1px solid var(--border)',
-                      borderRight: 'none',
-                      fontSize: '0.85rem',
-                      fontWeight: 700,
-                      padding: '1rem 0.5rem'
-                    }}>
-                      {day}
-                    </div>
-                  ))}
+                {['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'].map((day, i) => (
+                  <div key={day} className="calendar-header-cell" style={{
+                    color: i === 0 || i === 6 ? 'var(--cat-red-text)' : 'var(--foreground)',
+                    borderTop: 'none',
+                    borderLeft: i === 0 ? 'none' : '1px solid var(--border)',
+                    borderRight: 'none',
+                    fontSize: '0.85rem',
+                    fontWeight: 700,
+                    padding: '1rem 0.5rem'
+                  }}>
+                    {day}
+                  </div>
+                ))}
               </div>
-              
+
               {/* Calendar Grid */}
               <div className="calendar-grid flex-1" style={{ position: 'relative', gridTemplateColumns: `repeat(7, minmax(0, 1fr))` }}>
                 {isLoading && (
@@ -236,14 +236,14 @@ export default function Home() {
                   const isCurrentMonth = isSameMonth(date, currentDate);
                   const dayEvents = getEventsForDay(date);
                   const isToday = isSameDay(date, new Date());
-                  
+
                   return (
                     <div key={idx} className={`calendar-cell ${!isCurrentMonth && viewMode === 'month' ? 'other-month' : ''}`}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
-                        <span style={{ 
-                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center', 
-                          width: isToday ? '26px' : 'auto', height: isToday ? '26px' : 'auto', 
-                          borderRadius: isToday ? '50%' : 'none', background: isToday ? 'var(--primary)' : 'transparent', 
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          width: isToday ? '26px' : 'auto', height: isToday ? '26px' : 'auto',
+                          borderRadius: isToday ? '50%' : 'none', background: isToday ? 'var(--primary)' : 'transparent',
                           color: isToday ? '#ffffff' : 'inherit', opacity: isToday ? 1 : (isCurrentMonth || viewMode !== 'month' ? 1 : 0.4),
                           fontWeight: isToday ? 700 : 500, fontSize: '0.85rem', textAlign: 'center'
                         }}>
@@ -251,7 +251,7 @@ export default function Home() {
                         </span>
                         {isToday && <span style={{ fontSize: '0.6rem', color: 'var(--primary)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>วันนี้</span>}
                       </div>
-                      
+
                       <div className="flex flex-col gap-1 overflow-y-auto flex-1" style={{ maxHeight: viewMode === 'month' ? '90px' : 'none' }}>
                         {dayEvents.map(event => {
                           const colors = getPillColor(event);
@@ -259,7 +259,7 @@ export default function Home() {
                             <div key={event.id} className="event-pill" style={{ background: colors.bg, color: colors.text, padding: viewMode !== 'month' ? '0.5rem' : undefined, whiteSpace: viewMode !== 'month' ? 'normal' : 'nowrap' }} onClick={() => setSelectedEvent(event)}>
                               <span style={{ opacity: 0.8, marginRight: '3px', fontWeight: 700 }}>{safeFormatDate(event.startDate, 'HH:mm')}</span>
                               {event.title}
-                              {viewMode !== 'month' && <div style={{ fontSize: '0.7rem', marginTop: '4px', opacity: 0.8 }}><MapPin size={10} style={{display:'inline', marginRight:'2px'}}/>{event.location}</div>}
+                              {viewMode !== 'month' && <div style={{ fontSize: '0.7rem', marginTop: '4px', opacity: 0.8 }}><MapPin size={10} style={{ display: 'inline', marginRight: '2px' }} />{event.location}</div>}
                             </div>
                           );
                         })}
@@ -269,7 +269,7 @@ export default function Home() {
                 })}
               </div>
             </>
-          ) : (
+          ) : viewMode === 'list' ? (
             /* List View */
             <div className="flex-1 overflow-y-auto pr-2" style={{ position: 'relative' }}>
               {isLoading && (
@@ -283,42 +283,190 @@ export default function Home() {
                 calendarDays.map((date, idx) => {
                   const dayEvents = getEventsForDay(date);
                   if (dayEvents.length === 0) return null;
-                  
+
+                  const getDerivedTypeForList = (event: BookingEvent) => {
+                    let type = event.roomType;
+                    if (!['large', 'medium', 'small', 'vehicle', 'online'].includes(type)) {
+                      const str = JSON.stringify(event);
+                      if (str.includes('สภา')) type = 'large';
+                      else if (str.includes('ผู้สูงอายุ')) type = 'small';
+                      else if (str.includes('รถ')) type = 'vehicle';
+                      else if (str.includes('Zoom')) type = 'online';
+                      else type = 'medium';
+                    }
+                    return type;
+                  };
+
+                  const roomEvents = dayEvents.filter(e => {
+                    const t = getDerivedTypeForList(e);
+                    return ['large', 'medium', 'small'].includes(t);
+                  });
+                  const vehicleEvents = dayEvents.filter(e => getDerivedTypeForList(e) === 'vehicle');
+                  const otherEvents = dayEvents.filter(e => !['large', 'medium', 'small', 'vehicle'].includes(getDerivedTypeForList(e)));
+
+                  const renderEventCard = (event: BookingEvent) => {
+                    const colors = getPillColor(event);
+                    return (
+                      <div key={event.id} onClick={() => setSelectedEvent(event)} className="card flex gap-4 p-4 cursor-pointer hover:border-primary transition-colors" style={{ borderLeft: `4px solid ${colors.text}` }}>
+                        <div style={{ minWidth: '50px', fontWeight: 700, color: 'var(--foreground)' }}>
+                          {safeFormatDate(event.startDate, 'HH:mm')}
+                        </div>
+                        <div className="flex-1">
+                          <h4 style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.25rem' }}>{event.title}</h4>
+                          <div className="flex gap-3 opacity-70" style={{ fontSize: '0.8rem', flexWrap: 'wrap' }}>
+                            <span className="flex items-center gap-1"><MapPin size={12} /> {event.location}</span>
+                            <span className="flex items-center gap-1"><Users size={12} /> {event.department}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  };
+
                   return (
-                    <div key={idx} className="mb-6">
-                      <h3 style={{ fontSize: '1rem', fontWeight: 700, borderBottom: '2px solid var(--border)', paddingBottom: '0.5rem', marginBottom: '1rem', color: 'var(--primary)' }}>
+                    <div key={idx} className="mb-8">
+                      <h3 style={{ fontSize: '1.1rem', fontWeight: 800, borderBottom: '2px solid var(--border)', paddingBottom: '0.5rem', marginBottom: '1.25rem', color: 'var(--primary)' }}>
                         {format(date, 'EEEEที่ d MMMM yyyy', { locale: th })}
                       </h3>
-                      <div className="flex flex-col gap-3">
-                        {dayEvents.map(event => {
-                          const colors = getPillColor(event);
-                          return (
-                            <div key={event.id} onClick={() => setSelectedEvent(event)} className="card flex gap-4 p-4 cursor-pointer hover:border-primary transition-colors" style={{ borderLeft: `4px solid ${colors.text}` }}>
-                              <div style={{ minWidth: '60px', fontWeight: 700, color: 'var(--foreground)' }}>
-                                {safeFormatDate(event.startDate, 'HH:mm')}
-                              </div>
-                              <div className="flex-1">
-                                <h4 style={{ fontWeight: 700, fontSize: '1rem', marginBottom: '0.25rem' }}>{event.title}</h4>
-                                <div className="flex gap-4 opacity-70" style={{ fontSize: '0.85rem' }}>
-                                  <span className="flex items-center gap-1"><MapPin size={14}/> {event.location}</span>
-                                  <span className="flex items-center gap-1"><Users size={14}/> {event.department}</span>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
+                      <div style={{ display: 'grid', gap: '1.5rem', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
+                        {roomEvents.length > 0 && (
+                          <div className="flex flex-col gap-3">
+                            <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--foreground)', opacity: 0.8, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span style={{ display: 'inline-flex', padding: '0.25rem', background: 'var(--cat-blue-bg)', color: 'var(--cat-blue-text)', borderRadius: '4px' }}><MapPin size={14} /></span>
+                              ห้องประชุม
+                            </h4>
+                            {roomEvents.map(renderEventCard)}
+                          </div>
+                        )}
+                        {vehicleEvents.length > 0 && (
+                          <div className="flex flex-col gap-3">
+                            <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--foreground)', opacity: 0.8, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span style={{ display: 'inline-flex', padding: '0.25rem', background: 'var(--cat-green-bg)', color: 'var(--cat-green-text)', borderRadius: '4px' }}><Car size={14} /></span>
+                              ยานพาหนะ
+                            </h4>
+                            {vehicleEvents.map(renderEventCard)}
+                          </div>
+                        )}
+                        {otherEvents.length > 0 && (
+                          <div className="flex flex-col gap-3">
+                            <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--foreground)', opacity: 0.8, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span style={{ display: 'inline-flex', padding: '0.25rem', background: 'var(--cat-purple-bg)', color: 'var(--cat-purple-text)', borderRadius: '4px' }}><Video size={14} /></span>
+                              อื่นๆ
+                            </h4>
+                            {otherEvents.map(renderEventCard)}
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
                 })
               )}
             </div>
+          ) : (
+            /* Dashboard View */
+            <div className="flex-1 overflow-y-auto pr-2 animate-fade">
+              {(() => {
+                const currentMonthEvents = events.filter(e => isSameMonth(new Date(e.startDate), currentDate));
+                const totalEvents = currentMonthEvents.length;
+
+                const locationCounts: Record<string, number> = {};
+                const departmentCounts: Record<string, number> = {};
+
+                currentMonthEvents.forEach(e => {
+                  locationCounts[e.location] = (locationCounts[e.location] || 0) + 1;
+                  departmentCounts[e.department] = (departmentCounts[e.department] || 0) + 1;
+                });
+
+                const topLocations = Object.entries(locationCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+                const topDepartments = Object.entries(departmentCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+                if (totalEvents === 0) {
+                  return <div className="flex items-center justify-center h-full opacity-50">ไม่มีข้อมูลสถิติในเดือนนี้</div>;
+                }
+
+                return (
+                  <div className="flex flex-col gap-6">
+                    {/* Summary Cards */}
+                    <div className="flex gap-4 flex-wrap">
+                      <div className="card flex-1 p-5" style={{ minWidth: '200px', borderLeft: '4px solid var(--primary)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem', opacity: 0.7 }}>
+                          <BarChart3 size={20} /> <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>จำนวนการจองทั้งหมด</span>
+                        </div>
+                        <div style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--foreground)' }}>{totalEvents} <span style={{ fontSize: '1rem', fontWeight: 500, opacity: 0.5 }}>ครั้ง</span></div>
+                      </div>
+
+                      {topLocations.length > 0 && (
+                        <div className="card flex-1 p-5" style={{ minWidth: '200px', borderLeft: '4px solid var(--cat-green-bg)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem', opacity: 0.7 }}>
+                            <Award size={20} /> <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>สถานที่ยอดนิยม</span>
+                          </div>
+                          <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--foreground)', lineHeight: 1.2 }}>{topLocations[0][0]}</div>
+                          <div style={{ fontSize: '0.85rem', fontWeight: 500, opacity: 0.6, marginTop: '0.25rem' }}>ถูกจอง {topLocations[0][1]} ครั้ง</div>
+                        </div>
+                      )}
+
+                      {topDepartments.length > 0 && (
+                        <div className="card flex-1 p-5" style={{ minWidth: '200px', borderLeft: '4px solid var(--cat-purple-bg)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem', opacity: 0.7 }}>
+                            <Users size={20} /> <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>หน่วยงานที่ใช้งานสูงสุด</span>
+                          </div>
+                          <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--foreground)', lineHeight: 1.2 }}>{topDepartments[0][0]}</div>
+                          <div style={{ fontSize: '0.85rem', fontWeight: 500, opacity: 0.6, marginTop: '0.25rem' }}>จำนวน {topDepartments[0][1]} ครั้ง</div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Charts/Bars */}
+                    <div className="flex gap-6 flex-wrap" style={{ alignItems: 'flex-start' }}>
+                      <div className="card flex-1 p-6" style={{ minWidth: '300px' }}>
+                        <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '1.5rem', color: 'var(--foreground)' }}>สถานที่ / ทรัพยากรที่ถูกจอง</h3>
+                        <div className="flex flex-col gap-4">
+                          {topLocations.map(([name, count], i) => {
+                            const percent = (count / totalEvents) * 100;
+                            return (
+                              <div key={name}>
+                                <div className="flex justify-between" style={{ fontSize: '0.85rem', marginBottom: '0.25rem', fontWeight: 600 }}>
+                                  <span>{name}</span>
+                                  <span style={{ opacity: 0.7 }}>{count} ครั้ง ({percent.toFixed(0)}%)</span>
+                                </div>
+                                <div style={{ height: '8px', background: 'var(--surface-hover)', borderRadius: '4px', overflow: 'hidden' }}>
+                                  <div style={{ height: '100%', width: `${percent}%`, background: 'var(--primary)', borderRadius: '4px' }}></div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="card flex-1 p-6" style={{ minWidth: '300px' }}>
+                        <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '1.5rem', color: 'var(--foreground)' }}>หน่วยงานผู้จัด / ผู้ร่วม</h3>
+                        <div className="flex flex-col gap-4">
+                          {topDepartments.map(([name, count], i) => {
+                            const percent = (count / totalEvents) * 100;
+                            return (
+                              <div key={name}>
+                                <div className="flex justify-between" style={{ fontSize: '0.85rem', marginBottom: '0.25rem', fontWeight: 600 }}>
+                                  <span>{name}</span>
+                                  <span style={{ opacity: 0.7 }}>{count} ครั้ง ({percent.toFixed(0)}%)</span>
+                                </div>
+                                <div style={{ height: '8px', background: 'var(--surface-hover)', borderRadius: '4px', overflow: 'hidden' }}>
+                                  <div style={{ height: '100%', width: `${percent}%`, background: 'var(--cat-purple-text)', borderRadius: '4px' }}></div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
           )}
         </div>
 
         {/* Right: Notes & Selected Event Details */}
         <div style={{ width: '320px', display: 'flex', flexDirection: 'column', gap: '1rem', minWidth: '300px' }}>
-          
+
           {selectedEvent ? (
             <div className="card flex-1 flex flex-col animate-fade" style={{ padding: '1.5rem', borderLeft: `6px solid ${getPillColor(selectedEvent).text}`, position: 'relative' }}>
               <div className="flex justify-between items-start mb-4 pb-2" style={{ borderBottom: '1px solid var(--border)' }}>
@@ -341,7 +489,7 @@ export default function Home() {
               <div style={{ fontSize: '0.85rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div className="flex items-start gap-3">
                   <div style={{ color: 'var(--primary)', background: 'rgba(var(--primary-rgb), 0.08)', padding: '0.35rem', borderRadius: '6px', display: 'flex' }}>
-                    <MapPin size={16} /> 
+                    <MapPin size={16} />
                   </div>
                   <div>
                     <div style={{ fontWeight: 700, opacity: 0.6, fontSize: '0.75rem', textTransform: 'uppercase' }}>สถานที่</div>
@@ -350,19 +498,19 @@ export default function Home() {
                 </div>
                 <div className="flex items-start gap-3">
                   <div style={{ color: 'var(--primary)', background: 'rgba(var(--primary-rgb), 0.08)', padding: '0.35rem', borderRadius: '6px', display: 'flex' }}>
-                    <CalendarIcon size={16} /> 
+                    <CalendarIcon size={16} />
                   </div>
                   <div>
                     <div style={{ fontWeight: 700, opacity: 0.6, fontSize: '0.75rem', textTransform: 'uppercase' }}>เวลาจอง</div>
                     <div style={{ fontWeight: 600, color: 'var(--foreground)' }}>
-                      {safeFormatDate(selectedEvent.startDate, 'd MMMM yyyy')} <br/>
+                      {safeFormatDate(selectedEvent.startDate, 'd MMMM yyyy')} <br />
                       <span style={{ color: 'var(--primary)' }}>{safeFormatDate(selectedEvent.startDate, 'HH:mm')} - {safeFormatDate(selectedEvent.endDate, 'HH:mm')} น.</span>
                     </div>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
                   <div style={{ color: 'var(--primary)', background: 'rgba(var(--primary-rgb), 0.08)', padding: '0.35rem', borderRadius: '6px', display: 'flex' }}>
-                    <Info size={16} /> 
+                    <Info size={16} />
                   </div>
                   <div>
                     <div style={{ fontWeight: 700, opacity: 0.6, fontSize: '0.75rem', textTransform: 'uppercase' }}>ประธานการประชุม</div>
@@ -371,7 +519,7 @@ export default function Home() {
                 </div>
                 <div className="flex items-start gap-3">
                   <div style={{ color: 'var(--primary)', background: 'rgba(var(--primary-rgb), 0.08)', padding: '0.35rem', borderRadius: '6px', display: 'flex' }}>
-                    <Users size={16} /> 
+                    <Users size={16} />
                   </div>
                   <div>
                     <div style={{ fontWeight: 700, opacity: 0.6, fontSize: '0.75rem', textTransform: 'uppercase' }}>หน่วยงานผู้จัด / ผู้ร่วม</div>
@@ -388,11 +536,11 @@ export default function Home() {
             </div>
           ) : (
             <div className="card flex-1 flex flex-col items-center justify-center animate-fade" style={{ padding: '2rem 1.5rem', minHeight: '400px', textAlign: 'center', borderStyle: 'dashed', borderWidth: '2px', borderColor: 'var(--border)', background: 'transparent' }}>
-              <div style={{ 
-                background: 'rgba(var(--primary-rgb), 0.08)', 
-                color: 'var(--primary)', 
-                padding: '1.25rem', 
-                borderRadius: '50%', 
+              <div style={{
+                background: 'rgba(var(--primary-rgb), 0.08)',
+                color: 'var(--primary)',
+                padding: '1.25rem',
+                borderRadius: '50%',
                 marginBottom: '1.25rem',
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -411,7 +559,7 @@ export default function Home() {
         </div>
       </div>
 
-      <BookingModal 
+      <BookingModal
         isOpen={isModalOpen}
         onClose={() => { setIsModalOpen(false); setEventToEdit(null); }}
         initialData={eventToEdit}
@@ -460,10 +608,10 @@ export default function Home() {
         }}
       />
 
-      <ExportModal 
-        isOpen={isExportModalOpen} 
-        onClose={() => setIsExportModalOpen(false)} 
-        events={events} 
+      <ExportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        events={events}
       />
     </div>
   );

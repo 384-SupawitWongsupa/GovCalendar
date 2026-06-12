@@ -65,20 +65,42 @@ export default function ExportModal({ isOpen, onClose, events }: ExportModalProp
           if (!dateStr) return '-';
           const d = new Date(dateStr);
           if (isNaN(d.getTime())) return dateStr;
+          
+          if (formatStr.includes('yyyy')) {
+            const buddhistYear = parseInt(format(d, 'yyyy')) + 543;
+            return format(d, formatStr.replace('yyyy', buddhistYear.toString()), { locale: th });
+          }
+          
           return format(d, formatStr, { locale: th });
         } catch (error) {
           return dateStr;
         }
       };
 
+      const formatRecordDate = (idStr: string) => {
+        try {
+          if (!idStr || idStr.length < 5) return '-';
+          const cleanedStr = idStr.replace(/\s*\(.*?\)\s*/g, '');
+          const d = new Date(cleanedStr);
+          if (isNaN(d.getTime())) return idStr;
+          
+          let year = parseInt(format(d, 'yyyy'));
+          if (year < 2500) year += 543;
+          
+          return format(d, `d/M/${year} H:mm:ss`);
+        } catch (error) {
+          return idStr;
+        }
+      };
+
       return {
         'ลำดับ': index + 1,
-        'วันที่บันทึก': e.id && e.id.length > 5 ? e.id : '-',
+        'วันที่บันทึก': formatRecordDate(e.id || ''),
         'ชื่อกิจกรรม': e.title,
         'ประธาน': e.president,
         'หน่วยงานผู้จัด': e.department,
-        'สถานที่/ห้องประชุม': e.location,
-        'ประเภทห้อง': e.roomType,
+        'ห้องประชุม/รถ': e.location,
+        'ประเภท': e.roomType,
         'จำนวนคน': e.attendees,
         'เวลาเริ่ม': safeFormatDate(e.startDate, 'd MMM yyyy HH:mm'),
         'เวลาสิ้นสุด': safeFormatDate(e.endDate, 'd MMM yyyy HH:mm'),

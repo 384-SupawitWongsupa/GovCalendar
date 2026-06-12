@@ -1,10 +1,10 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap');
 
 :root {
-  /* Modern premium Light palette */
-  --primary: #4f46e5;
-  --primary-hover: #3730a3;
-  --primary-rgb: 79, 70, 229;
+  /* Formal Corporate Light palette */
+  --primary: #1e3a8a;
+  --primary-hover: #1e40af;
+  --primary-rgb: 30, 58, 138;
   
   --background: #f8fafc;
   --foreground: #0f172a;
@@ -46,18 +46,17 @@
   --transition-normal: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    /* Modern premium Dark palette */
-    --background: #090d16;
+.dark {
+    /* Formal Corporate Dark palette */
+    --background: #0f172a;
     --foreground: #f8fafc;
-    --surface: #111827;
-    --surface-hover: #1f2937;
-    --border: #1f293d;
+    --surface: #1e293b;
+    --surface-hover: #334155;
+    --border: #475569;
     
-    --primary: #6366f1;
-    --primary-hover: #818cf8;
-    --primary-rgb: 99, 102, 241;
+    --primary: #3b82f6;
+    --primary-hover: #60a5fa;
+    --primary-rgb: 59, 130, 246;
     
     /* Category Colors - Dark Mode (Proper contrast & soft glow) */
     --cat-red-bg: rgba(225, 29, 72, 0.15);
@@ -84,7 +83,6 @@
     --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
     --shadow-lg: 0 12px 24px rgba(0, 0, 0, 0.4);
     --shadow-premium: 0 20px 32px rgba(0, 0, 0, 0.45);
-  }
 }
 
 * {
@@ -171,11 +169,9 @@ a {
   border-bottom: 1px solid var(--border);
 }
 
-@media (prefers-color-scheme: dark) {
-  .glass {
-    background: rgba(17, 24, 39, 0.75);
-    border-bottom: 1px solid var(--border);
-  }
+.dark .glass {
+  background: rgba(17, 24, 39, 0.75);
+  border-bottom: 1px solid var(--border);
 }
 
 .btn {
@@ -269,9 +265,7 @@ a {
 .logo {
   font-size: 1.25rem;
   font-weight: 800;
-  background: linear-gradient(135deg, var(--primary) 0%, #a855f7 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--primary);
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -329,8 +323,11 @@ a {
 
 .form-input::-webkit-calendar-picker-indicator {
   cursor: pointer;
-  opacity: 0.6;
-  filter: prefers-color-scheme(dark) ? invert(1) : none;
+  opacity: 0.8;
+}
+
+.dark .form-input::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(0.9);
 }
 
 .form-input:focus,
