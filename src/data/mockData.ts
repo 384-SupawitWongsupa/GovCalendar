@@ -1,4 +1,4 @@
-export type RoomType = 'large' | 'medium' | 'vehicle' | 'online';
+export type RoomType = 'large' | 'medium' | 'small' | 'vehicle' | 'online';
 
 export interface BookingEvent {
   id: string;

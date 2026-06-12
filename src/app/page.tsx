@@ -201,7 +201,7 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="flex gap-6 flex-1" style={{ flexWrap: 'wrap-reverse', mdFlexWrap: 'nowrap' }}>
+      <div className="flex gap-6 flex-1 flex-wrap-reverse md:flex-nowrap">
         {/* Left: Main Grid */}
         <div className="flex-1 flex flex-col" style={{ minWidth: '320px' }}>
           {viewMode === 'month' ? (
@@ -566,7 +566,7 @@ export default function Home() {
         events={events}
         onSave={async (newEvent: any) => {
           // 1. เพิ่มข้อมูลลง UI ทันที (Optimistic UI)
-          let newEventWithId;
+          let newEventWithId: BookingEvent;
           const isUpdating = !!newEvent.id;
 
           if (isUpdating) {
