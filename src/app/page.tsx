@@ -513,7 +513,7 @@ export default function Home() {
                     <Info size={16} />
                   </div>
                   <div>
-                    <div style={{ fontWeight: 700, opacity: 0.6, fontSize: '0.75rem', textTransform: 'uppercase' }}>ประธานการประชุม</div>
+                    <div style={{ fontWeight: 700, opacity: 0.6, fontSize: '0.75rem', textTransform: 'uppercase' }}>ผู้ขอใช้ห้องประชุม / ผู้ขอใช้ยานพาหนะ</div>
                     <div style={{ fontWeight: 600, color: 'var(--foreground)' }}>{selectedEvent.president}</div>
                   </div>
                 </div>

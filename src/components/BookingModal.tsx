@@ -148,7 +148,7 @@ export default function BookingModal({ isOpen, onClose, onSave, initialData, eve
 
           <div className="flex gap-4" style={{ flexWrap: 'wrap' }}>
             <div className="form-group" style={{ flex: '1 1 240px' }}>
-              <label className="form-label">ประธานการประชุม</label>
+              <label className="form-label">ผู้ขอใช้ห้องประชุม / ผู้ขอใช้ยานพาหนะ</label>
               <input
                 required
                 className="form-input"
