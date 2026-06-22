@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: Request) {
   try {
     const data = await request.json();
@@ -46,6 +48,7 @@ export async function GET() {
 
     const response = await fetch(webhookUrl, {
       method: 'GET',
+      cache: 'no-store',
     });
 
     if (!response.ok) {
@@ -53,7 +56,7 @@ export async function GET() {
     }
 
     const data = await response.json();
-    return NextResponse.json({ success: true, data });
+    return NextResponse.json(data);
     
   } catch (error) {
     console.error('Error fetching from Google Sheets:', error);

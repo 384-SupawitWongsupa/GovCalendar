@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { format, parseISO, isSameDay, addDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { INITIAL_EVENTS, ROOM_COLORS, BookingEvent } from '@/data/mockData';
-import { Calendar as CalendarIcon, MapPin, Users, Video, Car, Plus, Info, ChevronLeft, ChevronRight, Edit2, Trash2, Download, X, BarChart3, Award } from 'lucide-react';
+import { Calendar as CalendarIcon, MapPin, Users, Video, Car, Plus, Info, ChevronLeft, ChevronRight, Edit2, Trash2, Download, X, BarChart3, Award, Printer } from 'lucide-react';
 import BookingModal from '@/components/BookingModal';
 import ExportModal from '@/components/ExportModal';
 
@@ -13,6 +13,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState<Date>(new Date('2026-06-01T00:00:00'));
   const [viewMode, setViewMode] = useState<'month' | 'list' | 'dashboard'>('month');
+  const [dashboardType, setDashboardType] = useState<'room' | 'vehicle'>('room');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<BookingEvent | null>(null);
@@ -32,10 +33,38 @@ export default function Home() {
   useEffect(() => {
     const fetchEvents = async () => {
       try {
-        const res = await fetch('/api/booking');
+        const res = await fetch('/api/booking', { cache: 'no-store' });
         const result = await res.json();
-        if (result.success && result.data && result.data.length > 0) {
-          setEvents(result.data);
+        if (result.success && Array.isArray(result.data)) {
+          const fixedData = result.data.map((event: any) => {
+            let evt = { ...event };
+            
+            // Fix column shift for vehicle
+            if (
+              (typeof evt.startDate === 'number' || (!isNaN(Number(evt.startDate)) && evt.startDate !== '')) &&
+              typeof evt.endDate === 'string' && evt.endDate.includes('T')
+            ) {
+              evt = {
+                ...evt,
+                roomType: evt.attendees,
+                attendees: evt.startDate,
+                startDate: evt.endDate,
+                endDate: evt.equipment,
+                equipment: evt.roomType,
+              };
+            }
+            
+            // Restore approver from permitType since it's not saved in Google Sheets
+            if (!evt.approver && evt.permitType) {
+              if (evt.permitType.includes('กองปลัด')) evt.approver = 'นางสุกัญญมาส เทพวงศ์';
+              else if (evt.permitType.includes('กองคลัง')) evt.approver = 'นางสาวดารารัตน์ เชื้อเมืองพาน';
+              else if (evt.permitType.includes('กองช่าง')) evt.approver = 'นายสุพล ปาริมา';
+              else if (evt.permitType.includes('กองการศึกษา')) evt.approver = 'นายดิเรก วันมี';
+            }
+            
+            return evt;
+          });
+          setEvents(fixedData);
         } else if (!result.success) {
           console.warn('Using fallback data because fetch failed:', result);
         }
@@ -78,25 +107,48 @@ export default function Home() {
   todayDate.setHours(0, 0, 0, 0);
 
   const eventsByDate = events.reduce((acc, event) => {
+    // กรองประเภท Dashboard
+    if (dashboardType === 'room' && event.roomType === 'vehicle') return acc;
+    if (dashboardType === 'vehicle' && event.roomType !== 'vehicle') return acc;
+
+    // ตรวจสอบข้อมูลวันที่ว่าถูกต้องหรือไม่ (ป้องกันแอปค้าง Invalid time value)
+    if (!event.startDate) return acc;
+    const start = new Date(event.startDate);
+    if (isNaN(start.getTime())) return acc;
+
     // Check if event is in the past (ended before today)
     const end = new Date(event.endDate || event.startDate);
-    end.setHours(23, 59, 59, 999);
+    if (!isNaN(end.getTime())) {
+      end.setHours(23, 59, 59, 999);
+      // ถ้าเวลาสิ้นสุดของกิจกรรม ผ่านเมื่อวานไปแล้ว ให้ข้าม (ไม่แสดงบนปฏิทิน)
+      if (end < todayDate) return acc;
+    }
 
-    // ถ้าเวลาสิ้นสุดของกิจกรรม ผ่านเมื่อวานไปแล้ว ให้ข้าม (ไม่แสดงบนปฏิทิน)
-    if (end < todayDate) return acc;
+    let currentDay = new Date(start);
+    currentDay.setHours(0, 0, 0, 0);
+    const lastDay = new Date(end);
+    lastDay.setHours(23, 59, 59, 999);
 
-    const start = new Date(event.startDate);
-    const dateKey = format(start, 'yyyy-MM-dd');
-    if (!acc[dateKey]) acc[dateKey] = [];
-    acc[dateKey].push(event);
+    // ป้องกันกรณีที่ข้อมูลวันที่ผิดพลาด ทำให้ลูปทำงานหลายหมื่นรอบ
+    const diffDays = (lastDay.getTime() - currentDay.getTime()) / (1000 * 3600 * 24);
+    if (diffDays > 30 || currentDay.getFullYear() < 2000) {
+      lastDay.setTime(currentDay.getTime()); // บังคับให้แสดงแค่วันเดียวเพื่อป้องกันแอปค้าง
+    }
+
+    while (currentDay <= lastDay) {
+      const dateKey = format(currentDay, 'yyyy-MM-dd');
+      if (!acc[dateKey]) acc[dateKey] = [];
+      acc[dateKey].push(event);
+      currentDay.setDate(currentDay.getDate() + 1);
+    }
     return acc;
   }, {} as Record<string, BookingEvent[]>);
 
   const getEventsForDay = (date: Date) => {
     const dateKey = format(date, 'yyyy-MM-dd');
     return (eventsByDate[dateKey] || []).sort((a, b) => {
-      const tA = parseISO(a.startDate).getTime();
-      const tB = parseISO(b.startDate).getTime();
+      const tA = new Date(a.startDate).getTime();
+      const tB = new Date(b.startDate).getTime();
       return (isNaN(tA) ? 0 : tA) - (isNaN(tB) ? 0 : tB);
     });
   };
@@ -150,6 +202,20 @@ export default function Home() {
 
   return (
     <div className="flex flex-col h-full gap-6 animate-fade">
+      {/* Dashboard Type Tabs */}
+      <div className="flex gap-4" style={{ borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
+        <button 
+          onClick={() => setDashboardType('room')}
+          style={{ padding: '0.5rem 1rem', borderBottom: dashboardType === 'room' ? '3px solid var(--primary)' : 'none', fontWeight: dashboardType === 'room' ? 700 : 500, color: dashboardType === 'room' ? 'var(--primary)' : 'var(--foreground)', opacity: dashboardType === 'room' ? 1 : 0.6, background: 'none', borderTop: 'none', borderLeft: 'none', borderRight: 'none', cursor: 'pointer', fontSize: '1.1rem' }}>
+          🏢 ปฏิทินห้องประชุม
+        </button>
+        <button 
+          onClick={() => setDashboardType('vehicle')}
+          style={{ padding: '0.5rem 1rem', borderBottom: dashboardType === 'vehicle' ? '3px solid var(--primary)' : 'none', fontWeight: dashboardType === 'vehicle' ? 700 : 500, color: dashboardType === 'vehicle' ? 'var(--primary)' : 'var(--foreground)', opacity: dashboardType === 'vehicle' ? 1 : 0.6, background: 'none', borderTop: 'none', borderLeft: 'none', borderRight: 'none', cursor: 'pointer', fontSize: '1.1rem' }}>
+          🚐 ปฏิทินยานพาหนะ
+        </button>
+      </div>
+
       {/* Calendar Header Area */}
       <div className="flex justify-between items-center" style={{ flexWrap: 'wrap', gap: '1rem' }}>
         <div className="flex items-center gap-3">
@@ -196,7 +262,7 @@ export default function Home() {
           </button>
           <button onClick={() => { setEventToEdit(null); setIsModalOpen(true); }} className="btn btn-primary" style={{ borderRadius: 'var(--radius-sm)' }}>
             <Plus size={16} />
-            <span>จองห้องประชุม</span>
+            <span>{dashboardType === 'room' ? 'จองห้องประชุม' : 'จองยานพาหนะ'}</span>
           </button>
         </div>
       </div>
@@ -253,10 +319,10 @@ export default function Home() {
                       </div>
 
                       <div className="flex flex-col gap-1 overflow-y-auto flex-1" style={{ maxHeight: viewMode === 'month' ? '90px' : 'none' }}>
-                        {dayEvents.map(event => {
+                        {dayEvents.map((event, eventIdx) => {
                           const colors = getPillColor(event);
                           return (
-                            <div key={event.id} className="event-pill" style={{ background: colors.bg, color: colors.text, padding: viewMode !== 'month' ? '0.5rem' : undefined, whiteSpace: viewMode !== 'month' ? 'normal' : 'nowrap' }} onClick={() => setSelectedEvent(event)}>
+                            <div key={`${event.id}-${eventIdx}`} className="event-pill" style={{ background: colors.bg, color: colors.text, padding: viewMode !== 'month' ? '0.5rem' : undefined, whiteSpace: viewMode !== 'month' ? 'normal' : 'nowrap' }} onClick={() => setSelectedEvent(event)}>
                               <span style={{ opacity: 0.8, marginRight: '3px', fontWeight: 700 }}>{safeFormatDate(event.startDate, 'HH:mm')}</span>
                               {event.title}
                               {viewMode !== 'month' && <div style={{ fontSize: '0.7rem', marginTop: '4px', opacity: 0.8 }}><MapPin size={10} style={{ display: 'inline', marginRight: '2px' }} />{event.location}</div>}
@@ -304,10 +370,10 @@ export default function Home() {
                   const vehicleEvents = dayEvents.filter(e => getDerivedTypeForList(e) === 'vehicle');
                   const otherEvents = dayEvents.filter(e => !['large', 'medium', 'small', 'vehicle'].includes(getDerivedTypeForList(e)));
 
-                  const renderEventCard = (event: BookingEvent) => {
+                  const renderEventCard = (event: BookingEvent, eventIdx: number) => {
                     const colors = getPillColor(event);
                     return (
-                      <div key={event.id} onClick={() => setSelectedEvent(event)} className="card flex gap-4 p-4 cursor-pointer hover:border-primary transition-colors" style={{ borderLeft: `4px solid ${colors.text}` }}>
+                      <div key={`${event.id}-${eventIdx}`} onClick={() => setSelectedEvent(event)} className="card flex gap-4 p-4 cursor-pointer hover:border-primary transition-colors" style={{ borderLeft: `4px solid ${colors.text}` }}>
                         <div style={{ minWidth: '50px', fontWeight: 700, color: 'var(--foreground)' }}>
                           {safeFormatDate(event.startDate, 'HH:mm')}
                         </div>
@@ -438,7 +504,7 @@ export default function Home() {
                       </div>
 
                       <div className="card flex-1 p-6" style={{ minWidth: '300px' }}>
-                        <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '1.5rem', color: 'var(--foreground)' }}>หน่วยงานผู้จัด / ผู้ร่วม</h3>
+                        <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '1.5rem', color: 'var(--foreground)' }}>หน่วยงาน (กอง / ฝ่าย / ตำแหน่ง)</h3>
                         <div className="flex flex-col gap-4">
                           {topDepartments.map(([name, count], i) => {
                             const percent = (count / totalEvents) * 100;
@@ -472,6 +538,63 @@ export default function Home() {
               <div className="flex justify-between items-start mb-4 pb-2" style={{ borderBottom: '1px solid var(--border)' }}>
                 <h3 style={{ fontSize: '1rem', fontWeight: 700, opacity: 0.8 }}>รายละเอียดการจอง</h3>
                 <div className="flex gap-1">
+                  {selectedEvent.roomType === 'vehicle' && (
+                    <>
+                      {(() => {
+                        const sheetGids: Record<string, string> = {
+                          "รถ ขก 9336": "1704221446",
+                          "รถ นค 2546": "24057517",
+                          "รถ กง 1957": "311292930",
+                          "รถ 1ษ 1054": "1914707118",
+                          "รถบรรทุกน้ำ": "953418876",
+                          "รถกระเช้า": "1990229307"
+                        };
+                        const gid = sheetGids[selectedEvent.location] || "";
+                        let exportUrl = "#";
+                        if (process.env.NEXT_PUBLIC_GOOGLE_SHEET_URL) {
+                          exportUrl = process.env.NEXT_PUBLIC_GOOGLE_SHEET_URL.replace(/\/edit.*$/, `/export?format=pdf&portrait=false&size=A4&fitw=true${gid ? `&gid=${gid}` : ''}`);
+                        }
+                        
+                        return (
+                          <>
+                            <a href={exportUrl} target="_blank" rel="noopener noreferrer" className="btn btn-outline" style={{ padding: '0.35rem 0.75rem', borderRadius: '6px', color: 'var(--cat-green-text)', borderColor: 'var(--cat-green-border)', background: 'var(--cat-green-bg)', display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.75rem', fontWeight: 600, textDecoration: 'none' }} title="ดาวน์โหลดสมุดบันทึกรถ (PDF)">
+                              📊 โหลดสมุดรถ
+                            </a>
+                            {selectedEvent.permitType && (
+                              <button onClick={async () => {
+                                try {
+                                  // 1. ดาวน์โหลดใบอนุญาต (ตอนนี้ API จะดึงสมุดรถมาต่อท้ายให้เป็นไฟล์เดียวแล้ว)
+                                  const pdfRes = await fetch('/api/print-pdf', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(selectedEvent),
+                                  });
+                                  if (pdfRes.ok) {
+                                    const blob = await pdfRes.blob();
+                                    const url = window.URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = `ใบขออนุญาต_${selectedEvent.president}.pdf`;
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    a.remove();
+                                  } else {
+                                    const errorData = await pdfRes.json();
+                                    alert(`ไม่สามารถโหลด PDF ได้: ${errorData.error}`);
+                                  }
+                                } catch (e) {
+                                  console.error(e);
+                                  alert('เกิดข้อผิดพลาดในการโหลด PDF');
+                                }
+                              }} className="btn btn-outline" style={{ padding: '0.35rem', borderRadius: '6px', color: 'var(--primary)', borderColor: 'var(--primary)' }} title="พิมพ์ใบอนุญาตและสมุดรถ">
+                                <Printer size={14} />
+                              </button>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </>
+                  )}
                   <button onClick={() => { setEventToEdit(selectedEvent); setIsModalOpen(true); }} className="btn btn-outline" style={{ padding: '0.35rem', borderRadius: '6px' }} title="แก้ไขข้อมูล">
                     <Edit2 size={14} />
                   </button>
@@ -522,7 +645,7 @@ export default function Home() {
                     <Users size={16} />
                   </div>
                   <div>
-                    <div style={{ fontWeight: 700, opacity: 0.6, fontSize: '0.75rem', textTransform: 'uppercase' }}>หน่วยงานผู้จัด / ผู้ร่วม</div>
+                    <div style={{ fontWeight: 700, opacity: 0.6, fontSize: '0.75rem', textTransform: 'uppercase' }}>หน่วยงาน (กอง / ฝ่าย / ตำแหน่ง)</div>
                     <div style={{ fontWeight: 600, color: 'var(--foreground)' }}>{selectedEvent.department} ({selectedEvent.attendees} คน)</div>
                   </div>
                 </div>
@@ -564,6 +687,7 @@ export default function Home() {
         onClose={() => { setIsModalOpen(false); setEventToEdit(null); }}
         initialData={eventToEdit}
         events={events}
+        dashboardType={dashboardType}
         onSave={async (newEvent: any) => {
           // 1. เพิ่มข้อมูลลง UI ทันที (Optimistic UI)
           let newEventWithId: BookingEvent;
@@ -591,13 +715,14 @@ export default function Home() {
             const res = await fetch('/api/booking', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(newEventWithId)
+              body: JSON.stringify(isUpdating ? { ...newEventWithId, action: 'update' } : newEventWithId)
             });
             const data = await res.json();
             if (data.simulated) {
               alert(isUpdating ? 'บันทึกการแก้ไขเรียบร้อย (ยังไม่ได้เชื่อมต่อ Google Sheets Webhook จริง)' : 'บันทึกข้อมูลเรียบร้อย (ยังไม่ได้เชื่อมต่อ Google Sheets Webhook จริง)');
             } else if (!data.success) {
               alert('เกิดข้อผิดพลาดในการบันทึกลง Google Sheets');
+              return;
             } else {
               alert(isUpdating ? 'แก้ไขข้อมูลใน Google Sheets เรียบร้อยแล้ว!' : 'บันทึกข้อมูลลง Google Sheets เรียบร้อยแล้ว!');
             }

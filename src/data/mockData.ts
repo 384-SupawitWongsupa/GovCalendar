@@ -5,6 +5,8 @@ export interface BookingEvent {
   title: string;
   president: string;
   department: string;
+  permitType?: string;
+  approver?: string;
   location: string;
   roomType: RoomType;
   startDate: string;
