@@ -304,7 +304,7 @@ export async function POST(request: Request) {
       
       const gid = sheetGids[data.location] || sheetGids[data.location.replace('ตู้ ', '')];
       if (gid) {
-        const exportUrl = sheetUrl.replace(/\/edit.*$/, `/export?format=pdf&portrait=false&size=A4&fitw=true&gid=${gid}`);
+        const exportUrl = sheetUrl.replace(/\/edit.*$/, `/export?format=pdf&portrait=false&size=A4&fitw=true&gid=${gid}`);/export?format=pdf&portrait=false&size=A4&fitw=true&gid=${gid}`);
         try {
           const response = await fetch(exportUrl);
           if (response.ok) {
