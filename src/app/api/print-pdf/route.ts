@@ -285,18 +285,26 @@ export async function POST(request: Request) {
     drawText(fullDateStr, coords.date2X, coords.date2Y); // วันที่ใต้นายกฯ
 
     // 5. ดึงข้อมูลสมุดบันทึกรถ (ถ้าเป็นยานพาหนะ)
-    if (data.roomType === 'vehicle' && process.env.NEXT_PUBLIC_GOOGLE_SHEET_URL && data.location) {
+    const sheetUrl = process.env.NEXT_PUBLIC_GOOGLE_SHEET_URL || "https://docs.google.com/spreadsheets/d/12lfm49QujrIANFGiV8VaaUWMtesS_EOZgBKUQIuQdPU/edit?usp=sharing";
+    const isVehicle = data.roomType === 'vehicle' || (data.location && data.location.includes('รถ'));
+
+    if (isVehicle && sheetUrl && data.location) {
       const sheetGids: Record<string, string> = {
         "รถ ขก 9336": "1704221446",
+        "รถตู้ ขก 9336": "1704221446",
         "รถ นค 2546": "24057517",
+        "รถตู้ นค 2546": "24057517",
         "รถ กง 1957": "311292930",
+        "รถตู้ กง 1957": "311292930",
         "รถ 1ษ 1054": "1914707118",
+        "รถตู้ 1ษ 1054": "1914707118",
         "รถบรรทุกน้ำ": "953418876",
         "รถกระเช้า": "1990229307"
       };
-      const gid = sheetGids[data.location];
+      
+      const gid = sheetGids[data.location] || sheetGids[data.location.replace('ตู้ ', '')];
       if (gid) {
-        const exportUrl = process.env.NEXT_PUBLIC_GOOGLE_SHEET_URL.replace(/\/edit.*$/, `/export?format=pdf&portrait=false&size=A4&fitw=true&gid=${gid}`);
+        const exportUrl = sheetUrl.replace(/\/edit.*$/, `/export?format=pdf&portrait=false&size=A4&fitw=true&gid=${gid}`);
         try {
           const response = await fetch(exportUrl);
           if (response.ok) {
