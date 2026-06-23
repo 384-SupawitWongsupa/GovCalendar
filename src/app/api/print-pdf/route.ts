@@ -324,7 +324,7 @@ export async function POST(request: Request) {
     // 6. บันทึกผลลัพธ์
     const pdfBytes = await pdfDoc.save();
 
-    return new NextResponse(pdfBytes, {
+    return new NextResponse(pdfBytes as unknown as BodyInit, {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': 'attachment; filename="booking-permit.pdf"',
