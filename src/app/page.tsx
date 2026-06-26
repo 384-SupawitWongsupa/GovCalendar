@@ -22,7 +22,7 @@ export default function Home() {
   const safeFormatDate = (dateStr: string | undefined | null, formatStr: string) => {
     if (!dateStr) return '-';
     try {
-      const parsed = parseISO(dateStr);
+      const parsed = new Date(dateStr);
       if (isNaN(parsed.getTime())) return '-';
       return format(parsed, formatStr, { locale: th });
     } catch {
