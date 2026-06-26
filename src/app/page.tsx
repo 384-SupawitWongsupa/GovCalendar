@@ -56,7 +56,7 @@ export default function Home() {
             
             // Restore approver from permitType since it's not saved in Google Sheets
             if (!evt.approver && evt.permitType) {
-              if (evt.permitType.includes('กองปลัด')) evt.approver = 'นางสุกัญญมาส เทพวงศ์';
+              if (evt.permitType.includes('สำนักงานปลัด')) evt.approver = 'นางสุกัญญมาส เทพวงศ์';
               else if (evt.permitType.includes('กองคลัง')) evt.approver = 'นางสาวดารารัตน์ เชื้อเมืองพาน';
               else if (evt.permitType.includes('กองช่าง')) evt.approver = 'นายสุพล ปาริมา';
               else if (evt.permitType.includes('กองการศึกษา')) evt.approver = 'นายดิเรก วันมี';

@@ -18,8 +18,8 @@ export async function POST(request: Request) {
     else if (data.permitType === 'กองคลัง (รักษาราชการแทน)') templateName = 'template-finance-acting.pdf';
     else if (data.permitType === 'กองช่าง') templateName = 'template-engineer.pdf';
     else if (data.permitType === 'กองช่าง (รักษาราชการแทน)') templateName = 'template-engineer-acting.pdf';
-    else if (data.permitType === 'กองปลัด') templateName = 'template-palad.pdf';
-    else if (data.permitType === 'กองปลัด (รักษาราชการแทน)') templateName = 'template-palad-acting.pdf';
+    else if (data.permitType === 'สำนักงานปลัด') templateName = 'template-palad.pdf';
+    else if (data.permitType === 'สำนักงานปลัด (รักษาราชการแทน)') templateName = 'template-palad-acting.pdf';
     else if (data.permitType === 'ตรวจสอบภายใน') templateName = 'template-audit.pdf';
     else if (data.permitType === 'ตรวจสอบภายใน (รักษาราชการแทน)') templateName = 'template-audit-acting.pdf';
     else if (data.permitType === 'กองการศึกษาศาสนาและวัฒนธรรม') templateName = 'template-education.pdf';
@@ -301,7 +301,7 @@ export async function POST(request: Request) {
         "รถบรรทุกน้ำ": "953418876",
         "รถกระเช้า": "1990229307"
       };
-      
+
       const gid = sheetGids[data.location] || sheetGids[data.location.replace('ตู้ ', '')];
       if (gid) {
         const exportUrl = sheetUrl.replace(/\/edit.*$/, `/export?format=pdf&portrait=false&size=A4&fitw=true&gid=${gid}`);

@@ -291,13 +291,13 @@ export default function BookingModal({ isOpen, onClose, onSave, initialData, eve
                       
                       let approver = formData.approver;
                       if (!isActing) {
-                        if (val === 'กองปลัด') approver = 'นางสุกัญญมาส เทพวงศ์';
+                        if (val === 'สำนักงานปลัด') approver = 'นางสุกัญญมาส เทพวงศ์';
                         else if (val === 'กองคลัง') approver = 'นางสาวดารารัตน์ เชื้อเมืองพาน';
                         else if (val === 'กองช่าง') approver = 'นายสุพล ปาริมา';
                         else if (val === 'กองการศึกษาศาสนาและวัฒนธรรม') approver = 'นายดิเรก วันมี';
                         else if (val === 'ตรวจสอบภายใน') approver = '';
                       } else {
-                        if (val === 'กองปลัด') approver = 'นายฐิติวัฒน์ รักแม่';
+                        if (val === 'สำนักงานปลัด') approver = 'นายฐิติวัฒน์ รักแม่';
                         else if (val === 'กองคลัง') approver = 'นางสาวรชต จิตนารินทร์';
                         else if (val === 'กองช่าง') approver = 'นางจิดาภา หอมนาน';
                         else if (val === 'กองการศึกษาศาสนาและวัฒนธรรม') approver = 'นางสาวพิชาพร มังคะละ';
@@ -309,7 +309,7 @@ export default function BookingModal({ isOpen, onClose, onSave, initialData, eve
                     <option value="">-- เลือกใบอนุญาต --</option>
                     <option value="กองคลัง">กองคลัง</option>
                     <option value="กองช่าง">กองช่าง</option>
-                    <option value="กองปลัด">กองปลัด</option>
+                    <option value="สำนักงานปลัด">สำนักงานปลัด</option>
                     <option value="ตรวจสอบภายใน">ตรวจสอบภายใน</option>
                     <option value="กองการศึกษาศาสนาและวัฒนธรรม">กองการศึกษาศาสนาและวัฒนธรรม</option>
                   </select>
@@ -325,7 +325,7 @@ export default function BookingModal({ isOpen, onClose, onSave, initialData, eve
                     <option value="">-- เลือกผู้เซ็นอนุมัติ --</option>
                     {formData.permitType.includes('(รักษาราชการแทน)') ? (
                       <>
-                        {formData.permitType.includes('กองปลัด') && (
+                        {formData.permitType.includes('สำนักงานปลัด') && (
                            <>
                              <option value="นายฐิติวัฒน์ รักแม่">นายฐิติวัฒน์ รักแม่ (รักษาราชการแทน)</option>
                              <option value="นางสาวจรรยารักษ์ เสธิปา">นางสาวจรรยารักษ์ เสธิปา (รักษาราชการแทน)</option>
@@ -353,7 +353,7 @@ export default function BookingModal({ isOpen, onClose, onSave, initialData, eve
                       </>
                     ) : (
                       <>
-                        <option value="นางสุกัญญมาส เทพวงศ์">นางสุกัญญมาส เทพวงศ์ (กองปลัด)</option>
+                        <option value="นางสุกัญญมาส เทพวงศ์">นางสุกัญญมาส เทพวงศ์ (สำนักงานปลัด)</option>
                         <option value="นางสาวดารารัตน์ เชื้อเมืองพาน">นางสาวดารารัตน์ เชื้อเมืองพาน (กองคลัง)</option>
                         <option value="นายสุพล ปาริมา">นายสุพล ปาริมา (กองช่าง)</option>
                         <option value="นายดิเรก วันมี">นายดิเรก วันมี (กองการศึกษาฯ)</option>
@@ -376,13 +376,13 @@ export default function BookingModal({ isOpen, onClose, onSave, initialData, eve
                       
                       let newApprover = formData.approver.replace(' (รักษาราชการแทน)', '');
                       if (isChecked) {
-                        if (basePermit === 'กองปลัด') newApprover = 'นายฐิติวัฒน์ รักแม่';
+                        if (basePermit === 'สำนักงานปลัด') newApprover = 'นายฐิติวัฒน์ รักแม่';
                         else if (basePermit === 'กองคลัง') newApprover = 'นางสาวรชต จิตนารินทร์';
                         else if (basePermit === 'กองช่าง') newApprover = 'นางจิดาภา หอมนาน';
                         else if (basePermit === 'กองการศึกษาศาสนาและวัฒนธรรม') newApprover = 'นางสาวพิชาพร มังคะละ';
                         else if (basePermit === 'ตรวจสอบภายใน') newApprover = 'นางสาวเจนจิรา กาวี';
                       } else {
-                        if (basePermit === 'กองปลัด') newApprover = 'นางสุกัญญมาส เทพวงศ์';
+                        if (basePermit === 'สำนักงานปลัด') newApprover = 'นางสุกัญญมาส เทพวงศ์';
                         else if (basePermit === 'กองคลัง') newApprover = 'นางสาวดารารัตน์ เชื้อเมืองพาน';
                         else if (basePermit === 'กองช่าง') newApprover = 'นายสุพล ปาริมา';
                         else if (basePermit === 'กองการศึกษาศาสนาและวัฒนธรรม') newApprover = 'นายดิเรก วันมี';

@@ -35,7 +35,7 @@ export default function PrintVehiclePermit() {
   let bgImage = '/template-vehicle.png';
   if (data.permitType === 'กองคลัง') bgImage = '/template-finance.png';
   else if (data.permitType === 'กองช่าง') bgImage = '/template-engineer.png';
-  else if (data.permitType === 'กองปลัด') bgImage = '/template-palad.png';
+  else if (data.permitType === 'สำนักงานปลัด') bgImage = '/template-palad.png';
 
   return (
     <div className="print-page" style={{ position: 'relative', width: '210mm', height: '297mm', margin: '0 auto', fontFamily: '"Sarabun", "Cordia New", sans-serif', fontSize: '15pt', color: 'black' }}>
